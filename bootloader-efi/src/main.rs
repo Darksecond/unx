@@ -11,6 +11,6 @@ fn efi_main(_image: Handle, st: SystemTable<Boot>) -> Status {
     uefi_services::init(&st).expect_success("Failed to initialize utils");
 
     info!("Hello, World!");
-    
-    Status::SUCCESS
+
+    loop {}
 }
