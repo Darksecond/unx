@@ -18,12 +18,13 @@ fn main() -> Result<()> {
         .subcommand(
             SubCommand::with_name("build").about("Builds the entire os and generates a disk image"),
         )
-        .subcommand(SubCommand::with_name("run").about("Builds then runs the disk image in qemu"))
+        .subcommand(
+            SubCommand::with_name("run").about("Builds then runs the disk image in qemu")
+        )
         .get_matches();
 
     //TODO Check if we are in the correct working directory
     if matches.is_present("hack") {
-        
         std::env::set_current_dir("..")?;
     }
 
