@@ -1,0 +1,6 @@
+Instead of using a custom linker script, you can also just override the image base address by passing -C link-arg="--image-base=0xffff800000000000" to rustc. 
+This way, you get the proper alignment by the default linker script and still have a higher-half executable.
+
+I just looked through the default linker script on my machine (run ld --verbose) and it appears that the section alignment is done via:
+ALIGN(CONSTANT (MAXPAGESIZE)) + (. & (CONSTANT (MAXPAGESIZE) - 1))
+The part after the + should not be needed, it is just an optimization to allow the sections to be placed directly adjacent in the executable (no empty padding bytes between sections).
