@@ -1,5 +1,5 @@
 [package]
-name = "diskbuilder"
+name = "unx-build"
 version = "0.1.0"
 authors = ["Tim Peters <mail@darksecond.nl>"]
 edition = "2018"
