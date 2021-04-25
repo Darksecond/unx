@@ -5,12 +5,12 @@ pub fn build() -> Result<()> {
     println!("Building...");
 
     cargo("kernel")?;
-    cargo("bootloader-efi")?;
+    cargo("bootloader")?;
 
     FatBuilder::new("disk.fat")
         .file("kernel/target/x86_64-unx/release/kernel", "kernel.elf")
         .file(
-            "bootloader-efi/target/x86_64-unknown-uefi/release/bootloader-efi.efi",
+            "bootloader/target/x86_64-unknown-uefi/release/bootloader.efi",
             "efi/boot/bootx64.efi",
         )
         .build()?;

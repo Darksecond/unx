@@ -11,4 +11,4 @@ panic = "abort"
 panic = "abort"
 
 [dependencies]
-bootloader = { path = "../bootloader" }
+bootinfo = { path = "../bootinfo" }
