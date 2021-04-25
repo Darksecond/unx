@@ -17,6 +17,7 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
 
     // Load kernel
     {
+        //TODO free buffer
         let buffer = load_file(image, &st, "kernel.elf");
         info!("{:X?}", &buffer[0..4]);
     }
@@ -82,5 +83,9 @@ fn load_file<'a>(image: Handle, st: &SystemTable<Boot>, path: &str) -> &'a mut [
         FileType::Dir(_) => panic!("file path is a directory"),
     }
 
+    //TODO somehow return buffer_addr so we can free it later
+    //TODO free with `boot_services.free_pool(pool_addr).unwrap_success();`.
+    //TODO I'm thinking some kind of `FileBuffer<'a>` with a impl of Drop
+    
     buffer
 }
