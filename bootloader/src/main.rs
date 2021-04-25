@@ -32,6 +32,8 @@ struct LoadedFileBuffer<'a> {
     system_table: &'a SystemTable<Boot>,
 }
 
+//TODO Add 'leak' method, we can decide to not drop the buffer.
+//TODO This can be useful in cases where we want to keep the data after we exit the bootservices.
 impl<'a> LoadedFileBuffer<'a> {
     pub fn buffer(&self) -> &[u8] {
         self.buffer
