@@ -24,11 +24,13 @@ pub fn cargo(cwd: &str) -> Result<()> {
     println!("Building {}...", cwd);
     println!("Running `cargo build --release`");
 
-    Command::new("cargo")
+    let status = Command::new("cargo")
         .arg("build")
         .arg("--release")
         .current_dir(cwd)
         .status()?;
+
+    anyhow::ensure!(status.success(), "build was unsuccessful");
 
     Ok(())
 }
