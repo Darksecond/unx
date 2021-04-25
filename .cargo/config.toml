@@ -1,0 +1,2 @@
+[alias]
+unx = "run --release --manifest-path unx-build/Cargo.toml --"
