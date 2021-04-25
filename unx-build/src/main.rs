@@ -1,6 +1,6 @@
 use anyhow::Result;
 use build::build;
-use clap::{App, AppSettings, Arg, SubCommand};
+use clap::{App, AppSettings, SubCommand};
 use run::run;
 
 mod build;
