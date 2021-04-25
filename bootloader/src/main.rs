@@ -17,7 +17,6 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
 
     // Load kernel
     {
-        //TODO free buffer
         let kernel = load_file(image, &st, "kernel.elf");
         info!("{:X?}", &kernel.buffer()[0..4]);
     }
