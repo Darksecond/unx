@@ -80,7 +80,7 @@ impl FatBuilder {
 
         fat_file.set_len(total_size)?;
 
-        let options = fatfs::FormatVolumeOptions::new().volume_label(*b"FOOO       ");
+        let options = fatfs::FormatVolumeOptions::new().volume_label(*b"UNX        ");
         fatfs::format_volume(&fat_file, options)?;
 
         let partition = fatfs::FileSystem::new(&fat_file, fatfs::FsOptions::new())?;
