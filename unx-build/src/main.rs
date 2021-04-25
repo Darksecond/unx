@@ -1,6 +1,6 @@
 use anyhow::Result;
 use build::build;
-use clap::{App, Arg, SubCommand};
+use clap::{App, AppSettings, Arg, SubCommand};
 use run::run;
 
 mod build;
@@ -10,6 +10,7 @@ mod run;
 
 fn main() -> Result<()> {
     let matches = App::new("unx-build")
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         .arg(
             Arg::with_name("hack")
                 .long("hack")
@@ -30,9 +31,7 @@ fn main() -> Result<()> {
 
     if let Some(_matches) = matches.subcommand_matches("build") {
         build()?;
-    }
-
-    if let Some(_matches) = matches.subcommand_matches("run") {
+    } else if let Some(_matches) = matches.subcommand_matches("run") {
         build()?;
         println!("Running...");
         run()?;
