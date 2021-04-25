@@ -18,14 +18,37 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
     // Load kernel
     {
         //TODO free buffer
-        let buffer = load_file(image, &st, "kernel.elf");
-        info!("{:X?}", &buffer[0..4]);
+        let kernel = load_file(image, &st, "kernel.elf");
+        info!("{:X?}", &kernel.buffer()[0..4]);
     }
+
+    info!("Goodbye, World!");
 
     loop {}
 }
 
-fn load_file<'a>(image: Handle, st: &SystemTable<Boot>, path: &str) -> &'a mut [u8] {
+struct LoadedFileBuffer<'a> {
+    buffer: &'a [u8],
+    buffer_addr: *mut u8,
+    system_table: &'a SystemTable<Boot>,
+}
+
+impl<'a> LoadedFileBuffer<'a> {
+    pub fn buffer(&self) -> &[u8] {
+        self.buffer
+    }
+}
+
+impl<'a> Drop for LoadedFileBuffer<'a> {
+    fn drop(&mut self) {
+        self.system_table
+            .boot_services()
+            .free_pool(self.buffer_addr)
+            .expect_success("Could not free Buffer");
+    }
+}
+
+fn load_file<'a>(image: Handle, st: &'a SystemTable<Boot>, path: &str) -> LoadedFileBuffer<'a> {
     use uefi::{
         proto::{
             loaded_image::LoadedImage,
@@ -83,9 +106,9 @@ fn load_file<'a>(image: Handle, st: &SystemTable<Boot>, path: &str) -> &'a mut [
         FileType::Dir(_) => panic!("file path is a directory"),
     }
 
-    //TODO somehow return buffer_addr so we can free it later
-    //TODO free with `boot_services.free_pool(pool_addr).unwrap_success();`.
-    //TODO I'm thinking some kind of `FileBuffer<'a>` with a impl of Drop
-    
-    buffer
+    LoadedFileBuffer {
+        buffer,
+        buffer_addr,
+        system_table: st,
+    }
 }
