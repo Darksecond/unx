@@ -18,7 +18,7 @@ pub fn run() -> Result<()> {
         .arg("-bios").arg("ovmf.fd")
         .arg("-machine").arg("q35")
         .arg("-m").arg("256M")
-        .arg("-drive").arg("format=raw,file=disk.img")
+        .arg("-drive").arg("format=raw,file=dist/disk.img")
         .status()?;
 
     Ok(())
