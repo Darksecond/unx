@@ -11,4 +11,5 @@ panic = "abort"
 panic = "abort"
 
 [dependencies]
+x86_64 = "0.14.0"
 bootinfo = { path = "../bootinfo" }
