@@ -52,6 +52,8 @@ where
             program::Type::Load => {
                 assert!(pheader.align() == Page::<Size4KiB>::SIZE);
 
+                log::info!("{:X?}", pheader);
+
                 let vstart = VirtAddr::new(pheader.virtual_addr());
                 let vstart_page: Page = Page::containing_address(vstart);
 
