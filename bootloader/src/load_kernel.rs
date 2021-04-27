@@ -10,6 +10,9 @@ use x86_64::PhysAddr;
 use x86_64::{structures::paging::mapper::MapToError, VirtAddr};
 use xmas_elf::{header, program, ElfFile};
 
+//TODO This needs a better name
+pub const BOOTLOADER_DATA: uefi::table::boot::MemoryType = uefi::table::boot::MemoryType::custom(0x80000000);
+
 pub unsafe fn map_area_and_ignore<M, F>(
     mapper: &mut M,
     page: Page,
@@ -45,7 +48,7 @@ where
     header::sanity_check(&elf)?;
 
     for pheader in elf.program_iter() {
-        use uefi::table::boot::{AllocateType, MemoryType};
+        use uefi::table::boot::{AllocateType};
         program::sanity_check(pheader, &elf)?;
 
         match pheader.get_type()? {
@@ -63,7 +66,7 @@ where
                 let frame_addr = boot_services
                     .allocate_pages(
                         AllocateType::AnyPages,
-                        MemoryType::RUNTIME_SERVICES_DATA,
+                        BOOTLOADER_DATA,
                         num_frames as _,
                     )
                     .expect_success("Could not allocate frames");

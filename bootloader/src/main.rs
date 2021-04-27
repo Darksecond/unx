@@ -6,7 +6,7 @@
 mod allocator;
 mod load_kernel;
 
-use load_kernel::{load_kernel, map_area_and_ignore};
+use load_kernel::{BOOTLOADER_DATA, load_kernel, map_area_and_ignore};
 use log::info;
 use uefi::{
     prelude::{entry, Boot, BootServices, Handle, Status, SystemTable},
@@ -24,7 +24,7 @@ use x86_64::{
 fn allocate_kernel_page_table(boot_services: &BootServices) -> OffsetPageTable<'static> {
     let phys_offset = VirtAddr::new(0);
     let kernel_page_table_frame = boot_services
-        .allocate_pages(AllocateType::AnyPages, MemoryType::RUNTIME_SERVICES_DATA, 1)
+        .allocate_pages(AllocateType::AnyPages, BOOTLOADER_DATA, 1)
         .expect_success("Could not allocate kernel page table");
 
     let addr = phys_offset + kernel_page_table_frame;
@@ -101,7 +101,7 @@ where
     let stack_pool = boot_services
         .allocate_pages(
             AllocateType::AnyPages,
-            MemoryType::RUNTIME_SERVICES_DATA,
+            BOOTLOADER_DATA,
             STACK_FRAMES as _,
         )
         .expect_success("Could not allocate stack");
@@ -241,7 +241,7 @@ fn load_file(image: Handle, st: &SystemTable<Boot>, path: &str) -> LoadedFileBuf
 
     let buffer_addr = st
         .boot_services()
-        .allocate_pool(MemoryType::RUNTIME_SERVICES_DATA, info.file_size() as usize)
+        .allocate_pool(BOOTLOADER_DATA, info.file_size() as usize)
         .expect_success("Could not allocate memory for file");
 
     let buffer: &mut [u8] = unsafe {
