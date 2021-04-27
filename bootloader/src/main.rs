@@ -6,10 +6,20 @@
 mod allocator;
 mod load_kernel;
 
-use load_kernel::load_kernel;
+use load_kernel::{load_kernel, map_area_and_ignore};
 use log::info;
-use uefi::{ResultExt, prelude::{entry, Boot, BootServices, Handle, Status, SystemTable}, table::boot::{AllocateType, MemoryDescriptor, MemoryType}};
-use x86_64::{PhysAddr, VirtAddr, structures::paging::{FrameAllocator, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB, mapper::MapperAllSizes}};
+use uefi::{
+    prelude::{entry, Boot, BootServices, Handle, Status, SystemTable},
+    table::boot::{AllocateType, MemoryDescriptor, MemoryType},
+    ResultExt,
+};
+use x86_64::{
+    structures::paging::{
+        mapper::MapperAllSizes, FrameAllocator, OffsetPageTable, Page, PageTable, PageTableFlags,
+        PhysFrame, Size4KiB,
+    },
+    PhysAddr, VirtAddr,
+};
 
 fn allocate_kernel_page_table(boot_services: &BootServices) -> OffsetPageTable<'static> {
     let phys_offset = VirtAddr::new(0);
@@ -19,64 +29,96 @@ fn allocate_kernel_page_table(boot_services: &BootServices) -> OffsetPageTable<'
 
     let addr = phys_offset + kernel_page_table_frame;
     let ptr = addr.as_mut_ptr();
-    unsafe { *ptr = PageTable::new(); }
+    unsafe {
+        *ptr = PageTable::new();
+    }
 
     let table = unsafe { &mut *ptr };
 
     unsafe { OffsetPageTable::new(table, phys_offset) }
-
 }
 
-fn map_loader<'a, M, A>(memory_map: impl Iterator<Item = &'a MemoryDescriptor>, allocator: &mut A, page_table: &mut M) where M: MapperAllSizes, A: FrameAllocator<Size4KiB> {
+fn map_loader<'a, M, A>(
+    memory_map: impl Iterator<Item = &'a MemoryDescriptor>,
+    allocator: &mut A,
+    page_table: &mut M,
+) where
+    M: MapperAllSizes,
+    A: FrameAllocator<Size4KiB>,
+{
+    //TODO Merge LOADER_CODE and LOADER_DATA into one block
     for entry in memory_map {
         match entry.ty {
             MemoryType::LOADER_CODE => {
-                
                 let page: Page = Page::containing_address(VirtAddr::new(entry.phys_start));
-                let frame: PhysFrame = PhysFrame::containing_address(PhysAddr::new(entry.phys_start));
+                let frame: PhysFrame =
+                    PhysFrame::containing_address(PhysAddr::new(entry.phys_start));
+                let flags = PageTableFlags::PRESENT;
 
-                for i in 0..entry.page_count {
-                    write_serial("c");
-                    unsafe {
-                        page_table.map_to(page + i, frame + i, PageTableFlags::PRESENT, allocator).unwrap().ignore();
-                    }
+                unsafe {
+                    map_area_and_ignore(
+                        page_table,
+                        page,
+                        frame,
+                        entry.page_count,
+                        flags,
+                        allocator,
+                    )
+                    .expect("Could not allocate loader code");
                 }
-            },
+            }
             MemoryType::LOADER_DATA => {
-                let mut page: Page = Page::containing_address(VirtAddr::new(entry.phys_start));
-                let mut frame: PhysFrame = PhysFrame::containing_address(PhysAddr::new(entry.phys_start));
+                let page: Page = Page::containing_address(VirtAddr::new(entry.phys_start));
+                let frame: PhysFrame =
+                    PhysFrame::containing_address(PhysAddr::new(entry.phys_start));
+                let flags =
+                    PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE | PageTableFlags::WRITABLE;
 
-                for i in 0..entry.page_count {
-                    page += i;
-                    frame += i;
-                    write_serial("d");
-                    unsafe {
-                        page_table.map_to(page, frame, PageTableFlags::PRESENT|PageTableFlags::NO_EXECUTE|PageTableFlags::WRITABLE, allocator).unwrap().ignore();
-                    }
+                unsafe {
+                    map_area_and_ignore(
+                        page_table,
+                        page,
+                        frame,
+                        entry.page_count,
+                        flags,
+                        allocator,
+                    )
+                    .expect("Could not allocate loader data");
                 }
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 }
 
-fn map_stack<M, A>(allocator: &mut A, page_table: &mut M, boot_services: &BootServices) -> u64 where M: MapperAllSizes, A: FrameAllocator<Size4KiB> {
-    let num_frames = 20;
-    let stack_base_phys = boot_services.allocate_pages(AllocateType::AnyPages, MemoryType::RUNTIME_SERVICES_DATA, num_frames).expect_success("Could not alloc stack");
+fn map_stack<M, A>(allocator: &mut A, page_table: &mut M, boot_services: &BootServices) -> u64
+where
+    M: MapperAllSizes,
+    A: FrameAllocator<Size4KiB>,
+{
+    use bootinfo::memory_layout::{STACK_TOP, STACK_FRAMES, STACK_BASE};
 
-    let stack_base: Page = Page::containing_address(VirtAddr::new(0x800000000));
-    let stack_top: Page = Page::containing_address(VirtAddr::new(0x800000000u64 + num_frames as u64 * 0x1000u64 - 1u64));
+    let stack_pool = boot_services
+        .allocate_pages(
+            AllocateType::AnyPages,
+            MemoryType::RUNTIME_SERVICES_DATA,
+            STACK_FRAMES as _,
+        )
+        .expect_success("Could not allocate stack");
 
-    for page in Page::range_inclusive(stack_base, stack_top) {
-        let i = page-stack_base;
-        let frame: PhysFrame = PhysFrame::containing_address(PhysAddr::new(stack_base_phys + i*0x1000));
-        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
-        unsafe {
-            page_table.map_to(page, frame, flags, allocator).expect("Could not map stack").ignore();
-        }
+    let frame: PhysFrame = PhysFrame::containing_address(PhysAddr::new(stack_pool));
+    let page: Page = Page::containing_address(VirtAddr::new(STACK_BASE));
+    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+
+    unsafe {
+        map_area_and_ignore(page_table, page, frame, STACK_FRAMES, flags, allocator)
+            .expect("Could not map stack");
     }
 
-    stack_top.start_address().as_u64()
+    //TODO Double check this.
+    VirtAddr::new(STACK_TOP - 1)
+        .align_down(8u64)
+        .as_u64()
 }
 
 fn context_switch(page_table: &mut OffsetPageTable, entry: u64, stack: u64) -> ! {
@@ -88,19 +130,7 @@ fn context_switch(page_table: &mut OffsetPageTable, entry: u64, stack: u64) -> !
         in(reg) entry);
     }
 
-    loop {
-        write_serial("after context switch ");
-    }
-
     unreachable!();
-}
-
-fn write_serial(word: &str) {
-    for chr in word.as_bytes() {
-        unsafe {
-            x86_64::instructions::port::PortWrite::write_to_port(0x3f8, *chr);
-        }
-    }
 }
 
 #[entry]
@@ -115,23 +145,26 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
     // Load kernel
     let entry = {
         let kernel = load_file(image, &st, "kernel.elf");
-        info!("{:X?}", &kernel.as_slice()[0..4]);
 
-        let entry = load_kernel(kernel.as_slice(), st.boot_services(), &mut kernel_page_table, &mut allocator).expect("Could not load kernel");
+        let entry = load_kernel(
+            kernel.as_slice(),
+            st.boot_services(),
+            &mut kernel_page_table,
+            &mut allocator,
+        )
+        .expect("Could not load kernel");
 
         kernel.free(&st);
 
         entry
     };
 
-    let stack = {
-        map_stack(&mut allocator, &mut kernel_page_table, st.boot_services())
-    };
+    let stack = { map_stack(&mut allocator, &mut kernel_page_table, st.boot_services()) };
 
     {
         use core::mem;
-        use uefi::table::boot::MemoryDescriptor;
         use core::slice;
+        use uefi::table::boot::MemoryDescriptor;
 
         let mmap_storage = {
             let max_mmap_size =
@@ -143,18 +176,13 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
             unsafe { slice::from_raw_parts_mut(ptr, max_mmap_size) }
         };
 
-        let (_system_table, memory_map) = st.exit_boot_services(image, mmap_storage).expect_success("Failed to exit boot services");
-
-        write_serial("before map_loader ");
+        let (_system_table, memory_map) = st
+            .exit_boot_services(image, mmap_storage)
+            .expect_success("Failed to exit boot services");
         map_loader(memory_map, &mut allocator, &mut kernel_page_table);
-        write_serial("after map_loader ");
     }
 
     context_switch(&mut kernel_page_table, entry, stack);
-
-    // info!("Goodbye, World!");
-
-    loop {}
 }
 
 struct LoadedFileBuffer {
@@ -175,14 +203,12 @@ impl LoadedFileBuffer {
 }
 
 fn load_file(image: Handle, st: &SystemTable<Boot>, path: &str) -> LoadedFileBuffer {
-    use uefi::{
-        proto::{
-            loaded_image::LoadedImage,
-            media::{
-                file::{File, FileAttribute, FileInfo, FileMode, FileType},
-                fs::SimpleFileSystem,
-            },
-        }
+    use uefi::proto::{
+        loaded_image::LoadedImage,
+        media::{
+            file::{File, FileAttribute, FileInfo, FileMode, FileType},
+            fs::SimpleFileSystem,
+        },
     };
 
     let loaded_image = unsafe {
