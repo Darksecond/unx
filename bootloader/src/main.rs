@@ -32,15 +32,13 @@ fn map_loader<'a, M, A>(memory_map: impl Iterator<Item = &'a MemoryDescriptor>, 
         match entry.ty {
             MemoryType::LOADER_CODE => {
                 
-                let mut page: Page = Page::containing_address(VirtAddr::new(entry.phys_start));
-                let mut frame: PhysFrame = PhysFrame::containing_address(PhysAddr::new(entry.phys_start));
+                let page: Page = Page::containing_address(VirtAddr::new(entry.phys_start));
+                let frame: PhysFrame = PhysFrame::containing_address(PhysAddr::new(entry.phys_start));
 
                 for i in 0..entry.page_count {
-                    page += i;
-                    frame += i;
                     write_serial("c");
                     unsafe {
-                        page_table.map_to(page, frame, PageTableFlags::PRESENT, allocator).unwrap().ignore();
+                        page_table.map_to(page + i, frame + i, PageTableFlags::PRESENT, allocator).unwrap().ignore();
                     }
                 }
             },
