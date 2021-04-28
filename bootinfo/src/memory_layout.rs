@@ -1,4 +1,7 @@
 
+//TODO <geist> suggestion: have STACK_GUARD and BOOTINFO_BASE and whatnot be the previous zone + some size
+//TODO <geist> maybe put a comment with the number after it so you can eyeball it
+
 pub const KERNEL_SPACE_BASE: u64 = 0xFFFF_FF80_0000_0000; //-512GiB
 pub const KERNEL_BASE: u64       = 0xFFFF_FFFF_8000_0000; //-2GiB
 

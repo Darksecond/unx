@@ -4,6 +4,8 @@
 
 use core::panic::PanicInfo;
 
+use bootinfo::boot_info::BootInfo;
+
 //TODO We probably want to wrap this into bootinfo and into a macro.
 //TODO This _will_ output a symbol into the kernel executable elf
 // #[used]
@@ -25,9 +27,20 @@ fn write_serial(word: &str) {
 }
 
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
+pub extern "C" fn _start(boot_info: &'static mut BootInfo) -> ! {
     write_serial("\n\n");
     write_serial("Hello, Kernel!\n");
     write_serial("This is being printed from the kernel!\n");
+
+    let framebuffer = &mut boot_info.frame_buffer;
+
+
+    for i in 0..framebuffer.info().width*framebuffer.info().height {
+        let buffer = framebuffer.buffer_mut();
+        buffer[4*i+0] = 255;
+        buffer[4*i+1] = 0;
+        buffer[4*i+2] = 255;
+    }
+
     loop {}
 }
