@@ -4,7 +4,7 @@
 
 use core::panic::PanicInfo;
 
-use bootinfo::{boot_info::BootInfo, memory_layout::PHYSMAP_BASE};
+use bootinfo::boot_info::BootInfo;
 
 //TODO We probably want to wrap this into bootinfo and into a macro.
 //TODO This _will_ output a symbol into the kernel executable elf
