@@ -3,11 +3,14 @@
 #![feature(asm)]
 #![feature(abi_efiapi)]
 
+mod file;
 mod load_kernel;
 mod memory;
-mod file;
 
-use bootinfo::boot_info::{BootInfo, FrameBuffer, FrameBufferInfo};
+use bootinfo::{
+    boot_info::{BootInfo, FrameBuffer, FrameBufferInfo},
+    memory_layout::PHYSMAP_BASE,
+};
 use load_kernel::{load_kernel, map_area_and_ignore, BOOTLOADER_DATA};
 use log::info;
 use uefi::{
@@ -16,15 +19,12 @@ use uefi::{
     table::boot::{AllocateType, MemoryDescriptor, MemoryType},
     ResultExt,
 };
-use x86_64::{
-    structures::paging::{
+use x86_64::{PhysAddr, VirtAddr, structures::paging::{
         mapper::MapperAllSizes, FrameAllocator, OffsetPageTable, Page, PageTable, PageTableFlags,
-        PhysFrame, Size4KiB,
-    },
-    PhysAddr, VirtAddr,
-};
+        PhysFrame, Size2MiB, Size4KiB,
+    }};
 
-use crate::memory::{BootInfoPageAllocator, allocate_frames};
+use crate::memory::{allocate_frames, BootInfoPageAllocator};
 
 fn map_framebuffer<M, A>(
     bootinfo_allocator: &mut BootInfoPageAllocator,
@@ -239,7 +239,7 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
         entry
     };
 
-    let boot_info_addr: *mut BootInfo = {
+    let (_boot_info, boot_info_addr) = {
         let (boot_info, boot_info_addr) = map_bootinfo(
             &mut bootinfo_allocator,
             &mut kernel_page_table,
@@ -254,7 +254,7 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
             st.boot_services(),
         );
 
-        boot_info_addr.start_address().as_mut_ptr()
+        (boot_info, boot_info_addr.start_address().as_mut_ptr())
     };
 
     let stack = map_stack(&mut allocator, &mut kernel_page_table, st.boot_services());
@@ -278,8 +278,36 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
             .exit_boot_services(image, mmap_storage)
             .expect_success("Failed to exit boot services");
 
-        map_loader(memory_map, &mut allocator, &mut kernel_page_table);
+        map_loader(memory_map.clone(), &mut allocator, &mut kernel_page_table);
+        map_physmap(&mut allocator, &mut kernel_page_table, memory_map.clone());
+        //TODO memory_map -> boot_info
     }
 
     context_switch(&mut kernel_page_table, entry, stack, boot_info_addr);
+}
+
+fn map_physmap<M, A, I>(allocator: &mut A, mapper: &mut M, memory_map: I)
+where
+    M: MapperAllSizes,
+    A: FrameAllocator<Size4KiB>,
+    I: ExactSizeIterator<Item = &'static MemoryDescriptor> + Clone,
+{
+    let phys_top = memory_map
+        .map(|r| PhysAddr::new(r.phys_start) + (r.page_count * 0x1000))
+        .max()
+        .unwrap().as_u64();
+
+    let offset = VirtAddr::new(PHYSMAP_BASE);
+    let start = PhysFrame::containing_address(PhysAddr::new(0));
+    let end = PhysFrame::<Size2MiB>::containing_address(PhysAddr::new(phys_top));
+    for frame in PhysFrame::range_inclusive(start, end) {
+        let page = Page::<Size2MiB>::containing_address(offset + frame.start_address().as_u64());
+        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+        unsafe {
+            mapper
+                .map_to(page, frame, flags, allocator)
+                .unwrap()
+                .ignore();
+        }
+    }
 }
