@@ -212,6 +212,9 @@ fn context_switch(
     unreachable!();
 }
 
+//TODO enable nxe bit
+//TODO enable write protect bit
+
 #[entry]
 fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
     uefi_services::init(&st).expect_success("Failed to initialize utils");

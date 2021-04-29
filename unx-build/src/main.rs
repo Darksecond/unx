@@ -6,7 +6,9 @@ use run::run;
 mod build;
 mod run;
 
-//TODO clean subcommand
+//TODO add clean subcommand
+//TODO add fmt subcommand
+//TODO add project specifier to clean/fmt/build
 
 fn main() -> Result<()> {
     let matches = App::new("unx-build")
