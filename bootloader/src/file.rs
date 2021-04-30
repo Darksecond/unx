@@ -66,6 +66,8 @@ pub fn load_file(image: Handle, st: &SystemTable<Boot>, path: &str) -> LoadedFil
         .allocate_pool(BOOTLOADER_DATA, info.file_size() as usize)
         .expect_success("Could not allocate memory for file");
 
+    info!("Buffer at 0x{:X} (0x{:X} bytes)", buffer_addr as u64, info.file_size());
+
     let buffer: &mut [u8] = unsafe {
         core::slice::from_raw_parts_mut(buffer_addr as *mut u8, info.file_size() as usize)
     };

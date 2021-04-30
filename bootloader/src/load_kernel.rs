@@ -1,3 +1,4 @@
+use log::info;
 use uefi::prelude::BootServices;
 use uefi::ResultExt;
 use x86_64::structures::paging::mapper::MapperAllSizes;
@@ -54,13 +55,17 @@ where
         match pheader.get_type()? {
             program::Type::Load => {
                 assert!(pheader.align() == Page::<Size4KiB>::SIZE);
+                assert!(pheader.mem_size() > 0);
+                assert!(pheader.file_size() <= pheader.mem_size());
 
                 log::info!("{:X?}", pheader);
 
                 let vstart = VirtAddr::new(pheader.virtual_addr());
                 let vstart_page: Page = Page::containing_address(vstart);
+                let dst_offset = vstart - vstart_page.start_address();
 
-                let mem_size = x86_64::align_up(pheader.mem_size(), Page::<Size4KiB>::SIZE);
+                // We need to take dst_offset into account, to make up for the bytes used for that.
+                let mem_size = x86_64::align_up(pheader.mem_size() + dst_offset, Page::<Size4KiB>::SIZE);
                 let num_frames = mem_size / Page::<Size4KiB>::SIZE;
 
                 let frame_addr = boot_services
@@ -71,23 +76,17 @@ where
                     )
                     .expect_success("Could not allocate frames");
 
+                // Zero destination
                 unsafe {
-                    let dst_offset = vstart - vstart_page.start_address();
-                    let destination = core::slice::from_raw_parts_mut(
-                        (frame_addr + dst_offset) as usize as *mut u8,
-                        pheader.mem_size() as usize,
-                    );
-                    let source = {
-                        let start: usize = pheader.offset() as _;
-                        let end: usize = (pheader.offset() + pheader.file_size()) as _;
-                        &buffer[start..end]
-                    };
+                    core::ptr::write_bytes(frame_addr as *mut u8, 0x00, mem_size as _);
+                }
 
-                    destination.fill(0);
-
-                    if pheader.file_size() > 0 {
-                        destination.copy_from_slice(source);
-                    }
+                // Copy data from file to it's final location
+                unsafe {
+                    let dst = frame_addr + dst_offset;
+                    let src = buffer.as_ptr() as u64 + pheader.offset();
+                    let count = pheader.file_size();
+                    core::ptr::copy_nonoverlapping(src as *const u8, dst as *mut u8, count as _);
                 }
 
                 // Map segment frames to pages

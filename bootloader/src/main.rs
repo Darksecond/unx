@@ -2,15 +2,15 @@
 #![no_main]
 #![feature(asm)]
 #![feature(abi_efiapi)]
+#![feature(maybe_uninit_extra)]
 
 mod file;
 mod load_kernel;
 mod memory;
 
-use bootinfo::{
-    boot_info::{BootInfo, FrameBuffer, FrameBufferInfo},
-    memory_layout::PHYSMAP_BASE,
-};
+use core::mem::MaybeUninit;
+
+use bootinfo::{boot_info::{BootInfo, FrameBuffer, FrameBufferInfo, MemoryMapEntry}, memory_layout::PHYSMAP_BASE};
 use file::load_file;
 use load_kernel::{load_kernel, map_area_and_ignore, BOOTLOADER_DATA};
 use log::info;
@@ -144,8 +144,11 @@ where
         .expect("Could not map boot info");
     }
 
-    let boot_info: &'static mut BootInfo =
-        unsafe { &mut *(frame.start_address().as_u64() as *mut BootInfo) };
+    let boot_info: &'static mut MaybeUninit<BootInfo> =
+        unsafe { &mut *(frame.start_address().as_u64() as *mut MaybeUninit<BootInfo>) };
+
+    let boot_info = boot_info.write(Default::default());
+
     (boot_info, boot_info_addr)
 }
 
@@ -287,7 +290,7 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
         entry
     };
 
-    let (_boot_info, boot_info_addr) = {
+    let (boot_info, boot_info_addr) = {
         let (boot_info, boot_info_addr) = map_bootinfo(
             &mut bootinfo_allocator,
             &mut kernel_page_table,
@@ -339,7 +342,7 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
 
         map_loader(memory_map.clone(), &mut allocator, &mut kernel_page_table);
         map_physmap(&mut allocator, &mut kernel_page_table, memory_map.clone());
-        //TODO memory_map -> boot_info
+        map_memorymap(memory_map.clone(), boot_info);
     }
 
     context_switch(&mut kernel_page_table, entry, stack, boot_info_addr);
@@ -368,6 +371,27 @@ where
                 .map_to(page, frame, flags, allocator)
                 .unwrap()
                 .ignore();
+        }
+    }
+}
+
+fn map_memorymap<I>(memory_map: I, boot_info: &mut BootInfo) where I: ExactSizeIterator<Item = &'static MemoryDescriptor> + Clone, {
+    for entry in memory_map {
+        // Skip everything that's not marked as CONVENTIONAl for now
+        if entry.ty == MemoryType::CONVENTIONAL {
+            boot_info.memory_map.add_entry(MemoryMapEntry {
+                memory_type: bootinfo::boot_info::MemoryType::Conventional,
+                start: entry.phys_start,
+                size: (entry.page_count * Page::<Size4KiB>::SIZE) as _,
+            }).expect("Could not map memorymap");
+        }
+    }
+}
+
+fn write_serial(word: &str) {
+    for chr in word.as_bytes() {
+        unsafe {
+            x86_64::instructions::port::PortWrite::write_to_port(0x3f8, *chr);
         }
     }
 }

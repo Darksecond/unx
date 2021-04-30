@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::process::Command;
 
 pub fn build() -> Result<()> {
@@ -8,6 +8,8 @@ pub fn build() -> Result<()> {
 
     cargo("kernel")?;
     cargo("bootloader")?;
+
+    strip("kernel/target/x86_64-unx/release/kernel")?;
 
     FatBuilder::new("dist/disk.fat")
         .file("default8x16.psfu", "console.psf")
@@ -20,6 +22,16 @@ pub fn build() -> Result<()> {
 
     build_gpt("dist/disk.fat", "dist/disk.img")?;
 
+    Ok(())
+}
+
+pub fn strip(file: &str) -> Result<()> {
+    let llvm_tools = llvm_tools::LlvmTools::new().unwrap(); //TODO handle error better
+    let strip = llvm_tools
+        .tool(&llvm_tools::exe("llvm-strip"))
+        .context("Could not find strip")?;
+    let status = Command::new(strip).arg(file).status()?;
+    anyhow::ensure!(status.success(), "strip was unsuccessful");
     Ok(())
 }
 
@@ -57,7 +69,6 @@ impl FatBuilder {
     }
 
     pub fn build(&mut self) -> Result<()> {
-        use anyhow::Context;
         use std::fs;
         use std::io;
 
@@ -110,7 +121,6 @@ impl FatBuilder {
 }
 
 pub fn build_gpt(fat_path: &str, gpt_path: &str) -> Result<()> {
-    use anyhow::Context;
     use std::convert::TryFrom;
     use std::fs;
     use std::fs::File;
