@@ -23,7 +23,9 @@ impl core::fmt::Write for SerialWriter {
 // pub static STACK_BASE: u64 = 0xDEADBEEF;
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    use core::fmt::Write;
+    writeln!(SerialWriter, "{}", info).unwrap();
     loop {}
 }
 
@@ -33,6 +35,7 @@ unsafe fn wait_serial() {
         value = x86_64::instructions::port::PortRead::read_from_port(0x3f8 + 5);
     }
 }
+
 fn write_serial(word: &str) {
     for chr in word.as_bytes() {
         unsafe {
