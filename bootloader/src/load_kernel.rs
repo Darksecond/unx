@@ -1,4 +1,3 @@
-use log::info;
 use uefi::prelude::BootServices;
 use uefi::ResultExt;
 use x86_64::structures::paging::mapper::MapperAllSizes;

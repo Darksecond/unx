@@ -387,11 +387,3 @@ fn map_memorymap<I>(memory_map: I, boot_info: &mut BootInfo) where I: ExactSizeI
         }
     }
 }
-
-fn write_serial(word: &str) {
-    for chr in word.as_bytes() {
-        unsafe {
-            x86_64::instructions::port::PortWrite::write_to_port(0x3f8, *chr);
-        }
-    }
-}
