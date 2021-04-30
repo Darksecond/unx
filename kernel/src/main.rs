@@ -4,7 +4,7 @@
 
 use core::panic::PanicInfo;
 
-use bootinfo::boot_info::BootInfo;
+use bootinfo::boot_info::{BootInfo, FrameBuffer};
 
 //TODO We probably want to wrap this into bootinfo and into a macro.
 //TODO This _will_ output a symbol into the kernel executable elf
@@ -32,11 +32,14 @@ pub extern "C" fn _start(boot_info: &'static mut BootInfo) -> ! {
     write_serial("Hello, Kernel!\n");
     write_serial("This is being printed from the kernel!\n");
 
-    let framebuffer = &mut boot_info.frame_buffer;
+
+    let framebuffer: &'static mut FrameBuffer = &mut boot_info.frame_buffer;
     
     // let buffer: &mut [u8] = unsafe {
     //     core::slice::from_raw_parts_mut((PHYSMAP_BASE + 0xc0000000) as *mut u8, framebuffer.buffer_size)
     // };
+
+    
     
     for i in 0..framebuffer.info().width*framebuffer.info().height {
         let buffer = framebuffer.buffer_mut();

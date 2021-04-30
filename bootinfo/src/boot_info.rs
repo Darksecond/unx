@@ -5,6 +5,14 @@ use core::slice;
 #[derive(Debug, Default)]
 pub struct BootInfo {
     pub frame_buffer: FrameBuffer,
+    pub console_font_base: u64,
+    pub console_font_size: usize,
+}
+
+impl BootInfo {
+    pub fn console_font(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.console_font_base as *const u8, self.console_font_size) }
+    }
 }
 
 #[repr(C)]

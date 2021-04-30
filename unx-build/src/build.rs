@@ -10,6 +10,7 @@ pub fn build() -> Result<()> {
     cargo("bootloader")?;
 
     FatBuilder::new("dist/disk.fat")
+        .file("default8x16.psfu", "console.psf")
         .file("kernel/target/x86_64-unx/release/kernel", "kernel.elf")
         .file(
             "bootloader/target/x86_64-unknown-uefi/release/bootloader.efi",

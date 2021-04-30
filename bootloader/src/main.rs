@@ -11,6 +11,7 @@ use bootinfo::{
     boot_info::{BootInfo, FrameBuffer, FrameBufferInfo},
     memory_layout::PHYSMAP_BASE,
 };
+use file::load_file;
 use load_kernel::{load_kernel, map_area_and_ignore, BOOTLOADER_DATA};
 use log::info;
 use uefi::{
@@ -19,10 +20,13 @@ use uefi::{
     table::boot::{AllocateType, MemoryDescriptor, MemoryType},
     ResultExt,
 };
-use x86_64::{PhysAddr, VirtAddr, structures::paging::{
+use x86_64::{
+    structures::paging::{
         mapper::MapperAllSizes, FrameAllocator, OffsetPageTable, Page, PageTable, PageTableFlags,
         PhysFrame, Size2MiB, Size4KiB,
-    }};
+    },
+    PhysAddr, VirtAddr,
+};
 
 use crate::memory::{allocate_frames, BootInfoPageAllocator};
 
@@ -69,6 +73,47 @@ where
             stride: mode_info.stride(),
         },
     }
+}
+
+fn map_font<'a, M, A>(
+    bootinfo_allocator: &mut BootInfoPageAllocator,
+    mapper: &mut M,
+    allocator: &mut A,
+    st: &SystemTable<Boot>,
+    image: Handle,
+) -> (u64, usize)
+where
+    M: MapperAllSizes,
+    A: FrameAllocator<Size4KiB>,
+{
+    let font = load_file(image, st, "console.psf");
+    let len = font.len();
+
+    let (page, num_frames) = bootinfo_allocator.allocate(len);
+    let frame = allocate_frames(st.boot_services(), num_frames);
+    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+
+    unsafe {
+        map_area_and_ignore(mapper, page, frame, num_frames, flags, allocator)
+            .expect("Could not map console font");
+    }
+
+    // Copy data to final destination
+    {
+        let src = font.as_slice();
+        let dst = unsafe {
+            core::slice::from_raw_parts_mut(
+                frame.start_address().as_u64() as *mut u8,
+                len,
+            )
+        };
+
+        dst.copy_from_slice(src);
+    }
+
+    font.free(st);
+
+    ( page.start_address().as_u64(), len )
 }
 
 fn map_bootinfo<'a, M, A>(
@@ -257,6 +302,17 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
             st.boot_services(),
         );
 
+        let font = map_font(
+            &mut bootinfo_allocator,
+            &mut kernel_page_table,
+            &mut allocator,
+            &st,
+            image,
+        );
+
+        boot_info.console_font_base = font.0;
+        boot_info.console_font_size = font.1;
+
         (boot_info, boot_info_addr.start_address().as_mut_ptr())
     };
 
@@ -298,7 +354,8 @@ where
     let phys_top = memory_map
         .map(|r| PhysAddr::new(r.phys_start) + (r.page_count * 0x1000))
         .max()
-        .unwrap().as_u64();
+        .unwrap()
+        .as_u64();
 
     let offset = VirtAddr::new(PHYSMAP_BASE);
     let start = PhysFrame::containing_address(PhysAddr::new(0));

@@ -18,6 +18,10 @@ impl LoadedFileBuffer {
             .free_pool(self.buffer_addr)
             .expect_success("Could not free buffer");
     }
+
+    pub fn len(&self) -> usize {
+        self.buffer_len
+    }
 }
 
 pub fn load_file(image: Handle, st: &SystemTable<Boot>, path: &str) -> LoadedFileBuffer {
