@@ -10,7 +10,7 @@ mod memory;
 
 use core::mem::MaybeUninit;
 
-use bootinfo::{boot_info::{BootInfo, FrameBuffer, FrameBufferInfo, MemoryMapEntry}, memory_layout::PHYSMAP_BASE};
+use bootinfo::{boot_info::{BootInfo, ConsoleFont, FrameBuffer, FrameBufferInfo, MemoryMapEntry}, memory_layout::PHYSMAP_BASE};
 use file::load_file;
 use load_kernel::{load_kernel, map_area_and_ignore, BOOTLOADER_DATA};
 use log::info;
@@ -81,7 +81,7 @@ fn map_font<'a, M, A>(
     allocator: &mut A,
     st: &SystemTable<Boot>,
     image: Handle,
-) -> (u64, usize)
+) -> ConsoleFont
 where
     M: MapperAllSizes,
     A: FrameAllocator<Size4KiB>,
@@ -113,7 +113,10 @@ where
 
     font.free(st);
 
-    ( page.start_address().as_u64(), len )
+    ConsoleFont {
+        font_base: page.start_address().as_u64(),
+        font_size: len,
+    }
 }
 
 fn map_bootinfo<'a, M, A>(
@@ -305,16 +308,13 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
             st.boot_services(),
         );
 
-        let font = map_font(
+        boot_info.console_font = map_font(
             &mut bootinfo_allocator,
             &mut kernel_page_table,
             &mut allocator,
             &st,
             image,
         );
-
-        boot_info.console_font_base = font.0;
-        boot_info.console_font_size = font.1;
 
         (boot_info, boot_info_addr.start_address().as_mut_ptr())
     };

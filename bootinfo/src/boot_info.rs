@@ -57,20 +57,24 @@ impl Default for MemoryMapEntry {
     }
 }
 
+#[derive(Debug, Default, Copy, Clone)]
+pub struct ConsoleFont {
+    pub font_base: u64,
+    pub font_size: usize,
+}
+
+impl ConsoleFont {
+    pub fn as_slice(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.font_base as *const u8, self.font_size) }
+    }
+}
+
 
 #[derive(Debug, Default)]
 pub struct BootInfo {
     pub frame_buffer: FrameBuffer,
     pub memory_map: MemoryMap,
-
-    pub console_font_base: u64,
-    pub console_font_size: usize,
-}
-
-impl BootInfo {
-    pub fn console_font(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.console_font_base as *const u8, self.console_font_size) }
-    }
+    pub console_font: ConsoleFont,
 }
 
 #[derive(Debug, Default, Copy, Clone)]

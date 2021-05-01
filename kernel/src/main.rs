@@ -54,7 +54,8 @@ pub extern "C" fn _start(boot_info: &'static mut BootInfo) -> ! {
     write_serial("This is being printed from the kernel!\n");
 
     {
-        let psf = psf::Font::new(boot_info.console_font());
+        let font = boot_info.console_font;
+        let psf = psf::Font::new(font.as_slice());
         let char = psf.glyph('&').unwrap();
 
         let mut frame_buffer = boot_info.frame_buffer;
