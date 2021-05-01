@@ -5,6 +5,13 @@ use byteorder::{LittleEndian, ByteOrder};
 //TODO support unicode tables
 
 #[derive(Debug)]
+pub enum FontError {
+    InvalidMagic,
+    UnknownVersion,
+    InvalidHeaderSize,
+}
+
+#[derive(Debug)]
 struct FontInfo {
     width: u32,
     height: u32,
@@ -13,7 +20,7 @@ struct FontInfo {
 }
 
 impl FontInfo {
-    pub fn new(data: &[u8]) -> Self {
+    pub fn new(data: &[u8]) -> Result<Self, FontError> {
         let magic = LittleEndian::read_u32(&data[0..4]);
         let version = LittleEndian::read_u32(&data[4..8]);
         let header_size = LittleEndian::read_u32(&data[8..12]);
@@ -23,17 +30,16 @@ impl FontInfo {
         let height = LittleEndian::read_u32(&data[24..28]);
         let width = LittleEndian::read_u32(&data[28..32]);
 
-        //TODO Result instead of asserts
-        assert!(magic == 0x864ab572);
-        assert!(version == 0);
-        assert!(header_size == 32);
+        if magic != 0x864ab572 { return Err(FontError::InvalidMagic); }
+        if version != 0 { return Err(FontError::UnknownVersion); }
+        if header_size != 32 { return Err(FontError::InvalidHeaderSize); }
 
-        FontInfo {
+        Ok(FontInfo {
             width,
             height,
             bytes_per_glyph,
             num_glyphs,
-        }
+        })
     }
 }
 
@@ -74,11 +80,11 @@ impl<'a> Glyph<'a> {
 
 impl<'a> Font<'a> {
     /// This is implemented for PSF version 2.
-    pub fn new(data: &'a [u8]) -> Self {
-        Font {
-            info: FontInfo::new(data),
+    pub fn new(data: &'a [u8]) -> Result<Self, FontError> {
+        Ok(Font {
+            info: FontInfo::new(data)?,
             data,
-        }
+        })
     }
 
     pub fn glyph(&self, character: char) -> Option<Glyph> {

@@ -55,7 +55,7 @@ pub extern "C" fn _start(boot_info: &'static mut BootInfo) -> ! {
 
     {
         let font = boot_info.console_font;
-        let psf = psf::Font::new(font.as_slice());
+        let psf = psf::Font::new(font.as_slice()).unwrap();
         let char = psf.glyph('&').unwrap();
 
         let mut frame_buffer = boot_info.frame_buffer;
