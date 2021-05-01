@@ -102,5 +102,6 @@ impl FrameBuffer {
 pub struct FrameBufferInfo {
     pub width: usize,
     pub height: usize,
+    /// Stride is in pixels, not bytes!
     pub stride: usize,
 }
