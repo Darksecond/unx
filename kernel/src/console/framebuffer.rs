@@ -1,6 +1,6 @@
-use core::{fmt, panic::PanicInfo};
+
+use core::{fmt};
 use bootinfo::boot_info::{ConsoleFont, FrameBuffer};
-use spinning_top::{Spinlock, const_spinlock};
 
 const BYTES_PER_PIXEL: usize = 4;
 
@@ -44,7 +44,7 @@ fn draw_pixel(mut frame_buffer: FrameBuffer, x: usize, y: usize, color: Color) {
     buffer[index+2] = color.r;
 }
 
-struct FrameBufferWriter {
+pub struct FrameBufferWriter {
     frame_buffer: FrameBuffer,
     font: psf::Font<ConsoleFont>,
     x: usize,
@@ -52,7 +52,16 @@ struct FrameBufferWriter {
 }
 
 impl FrameBufferWriter {
-    fn clear(&mut self) {
+    pub fn new(frame_buffer: FrameBuffer, font: ConsoleFont) -> Self {
+        FrameBufferWriter {
+            frame_buffer,
+            font: psf::Font::new(font).unwrap(),
+            x: 0,
+            y: 0,
+        }
+    }
+
+    pub fn clear(&mut self) {
         let info = self.frame_buffer.info();
 
         for y in 0..info.height {
@@ -147,56 +156,4 @@ impl fmt::Write for FrameBufferWriter {
 
         Ok(())
     }
-}
-
-static FRAMEBUFFER_WRITER: Spinlock<Option<FrameBufferWriter>> = const_spinlock(None);
-
-pub fn init(frame_buffer: FrameBuffer, font: ConsoleFont) {
-    let mut guard = FRAMEBUFFER_WRITER.lock();
-    guard.insert(FrameBufferWriter {
-        frame_buffer,
-        font: psf::Font::new(font).unwrap(),
-        x: 0,
-        y: 0,
-    });
-
-    if let Some(writer) = guard.as_mut() {
-        writer.clear();
-    }
-}
-
-#[doc(hidden)]
-pub fn _print(args: fmt::Arguments) {
-    use fmt::Write;
-
-    //TODO Probably disable interrupts whilst locking; to prevent deadlocks
-
-    //TODO Also output to SerialWriter
-    if let Some(writer) = FRAMEBUFFER_WRITER.lock().as_mut() {
-        writer.write_fmt(args).unwrap()
-    }
-}
-
-#[macro_export]
-macro_rules! print {
-    ($($arg:tt)*) => ($crate::console::_print(format_args!($($arg)*)));
-}
-
-#[macro_export]
-macro_rules! println {
-    () => (print!("\n"));
-    ($($arg:tt)*) => (print!("{}\n", format_args!($($arg)*)));
-}
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    // Force unlock the mutex; in case it was locked.
-    // This is OK since we're panicking.
-    unsafe {
-        FRAMEBUFFER_WRITER.force_unlock();
-    }
-
-    println!("{}", info);
-    
-    loop { x86_64::instructions::hlt(); }
 }

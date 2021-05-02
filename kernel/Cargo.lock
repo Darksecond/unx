@@ -31,6 +31,7 @@ dependencies = [
  "bootinfo",
  "psf",
  "spinning_top",
+ "uart_16550",
  "volatile",
  "x86_64",
 ]
@@ -64,6 +65,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8bd0ab6b8c375d2d963503b90d3770010d95bc3b5f98036f948dee24bf4e8879"
 dependencies = [
  "lock_api",
+]
+
+[[package]]
+name = "uart_16550"
+version = "0.2.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e09a33949dbbdeaa40f59d7ede389bba927c90b7ad411b91bb9617be3694267b"
+dependencies = [
+ "bitflags",
+ "x86_64",
 ]
 
 [[package]]

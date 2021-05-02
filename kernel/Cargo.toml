@@ -14,5 +14,6 @@ panic = "abort"
 x86_64 = "0.14.0"
 spinning_top = "0.2.3"
 volatile = "0.4.4"
+uart_16550 = "0.2.13"
 bootinfo = { path = "../bootinfo" }
 psf = { path = "../psf" }
