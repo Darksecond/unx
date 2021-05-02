@@ -3,6 +3,7 @@
 #![feature(asm)]
 
 mod console;
+mod memory;
 
 use bootinfo::boot_info::BootInfo;
 
@@ -16,6 +17,7 @@ use bootinfo::boot_info::BootInfo;
 #[no_mangle]
 pub extern "C" fn _start(boot_info: &'static mut BootInfo) -> ! {
     console::init(boot_info.frame_buffer, boot_info.console_font);
+    memory::init(&boot_info.memory_map);
 
     println!("Hello, World!");
 

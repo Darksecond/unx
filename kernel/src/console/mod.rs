@@ -46,7 +46,7 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
     () => (print!("\n"));
-    ($($arg:tt)*) => (print!("{}\n", format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
 
 #[panic_handler]

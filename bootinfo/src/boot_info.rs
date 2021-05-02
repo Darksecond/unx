@@ -34,7 +34,7 @@ impl Default for MemoryMap {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MemoryType {
     Unusable,
     Conventional,
