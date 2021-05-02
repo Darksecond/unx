@@ -30,7 +30,18 @@ version = "0.1.0"
 dependencies = [
  "bootinfo",
  "psf",
+ "spinning_top",
+ "volatile",
  "x86_64",
+]
+
+[[package]]
+name = "lock_api"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0382880606dff6d15c9476c416d18690b72742aa7b605bb6dd6ec9030fbf07eb"
+dependencies = [
+ "scopeguard",
 ]
 
 [[package]]
@@ -38,6 +49,21 @@ name = "psf"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+]
+
+[[package]]
+name = "scopeguard"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
+
+[[package]]
+name = "spinning_top"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8bd0ab6b8c375d2d963503b90d3770010d95bc3b5f98036f948dee24bf4e8879"
+dependencies = [
+ "lock_api",
 ]
 
 [[package]]

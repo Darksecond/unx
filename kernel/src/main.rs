@@ -2,6 +2,8 @@
 #![no_main]
 #![feature(asm)]
 
+mod console;
+
 use core::{panic::PanicInfo, u8};
 
 use bootinfo::boot_info::BootInfo;
@@ -47,30 +49,30 @@ fn write_serial(word: &str) {
 
 #[no_mangle]
 pub extern "C" fn _start(boot_info: &'static mut BootInfo) -> ! {
-    use core::fmt::Write;
+    // use core::fmt::Write;
 
     write_serial("\n\n");
     write_serial("Hello, Kernel!\n");
     write_serial("This is being printed from the kernel!\n");
 
-    {
-        let font = boot_info.console_font;
-        let psf = psf::Font::new(font.as_slice()).unwrap();
-        let char = psf.glyph('&').unwrap();
+    // {
+    //     let font = boot_info.console_font;
+    //     let psf = psf::Font::new(font.as_slice()).unwrap();
+    //     let char = psf.glyph('&').unwrap();
 
-        let mut frame_buffer = boot_info.frame_buffer;
-        let stride = frame_buffer.info.stride as u32;
-        let buffer = frame_buffer.buffer_mut();
+    //     let mut frame_buffer = boot_info.frame_buffer;
+    //     let stride = frame_buffer.info.stride as u32;
+    //     let buffer = frame_buffer.buffer_mut();
 
-        for y in 0..char.height() {
-            for x in 0..char.width() {
-                let bit = char.pixel(x,y).unwrap();
-                let color = if bit { 255 } else { 0 };
+    //     for y in 0..char.height() {
+    //         for x in 0..char.width() {
+    //             let bit = char.pixel(x,y).unwrap();
+    //             let color = if bit { 255 } else { 0 };
                 
-                buffer[(y*stride*4+x*4+32) as usize] = color;
-            }
-        }
-    }
+    //             buffer[(y*stride*4+x*4+32) as usize] = color;
+    //         }
+    //     }
+    // }
 
     // let framebuffer: &mut FrameBuffer = &mut boot_info.frame_buffer;
     
@@ -80,9 +82,9 @@ pub extern "C" fn _start(boot_info: &'static mut BootInfo) -> ! {
 
     
 
-    for entry in boot_info.memory_map.entries() {
-        writeln!(SerialWriter, "{:?}", entry).unwrap();
-    }
+    // for entry in boot_info.memory_map.entries() {
+    //     writeln!(SerialWriter, "{:?}", entry).unwrap();
+    // }
     
     // for i in 0..framebuffer.info().width*framebuffer.info().height {
     //     let buffer = framebuffer.buffer_mut();
@@ -91,6 +93,8 @@ pub extern "C" fn _start(boot_info: &'static mut BootInfo) -> ! {
     //     buffer[4*i+1] = 0;
     //     buffer[4*i+2] = 255;
     // }
+
+    console::init(boot_info.frame_buffer, boot_info.console_font);
 
     loop {}
 }

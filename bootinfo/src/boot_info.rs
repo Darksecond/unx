@@ -69,6 +69,12 @@ impl ConsoleFont {
     }
 }
 
+impl AsRef<[u8]> for ConsoleFont {
+    fn as_ref(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+
 
 #[derive(Debug, Default)]
 pub struct BootInfo {

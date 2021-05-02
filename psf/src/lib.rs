@@ -44,9 +44,9 @@ impl FontInfo {
 }
 
 #[derive(Debug)]
-pub struct Font<'a> {
+pub struct Font<D> where D: AsRef<[u8]> {
     info: FontInfo,
-    data: &'a [u8],
+    data: D,
 }
 
 #[derive(Debug)]
@@ -78,13 +78,21 @@ impl<'a> Glyph<'a> {
     }
 }
 
-impl<'a> Font<'a> {
+impl<D> Font<D> where D: AsRef<[u8]> {
     /// This is implemented for PSF version 2.
-    pub fn new(data: &'a [u8]) -> Result<Self, FontError> {
+    pub fn new(data: D) -> Result<Self, FontError> {
         Ok(Font {
-            info: FontInfo::new(data)?,
+            info: FontInfo::new(data.as_ref())?,
             data,
         })
+    }
+
+    pub fn width(&self) -> u32 {
+        self.info.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.info.height
     }
 
     pub fn glyph(&self, character: char) -> Option<Glyph> {
@@ -99,7 +107,7 @@ impl<'a> Font<'a> {
             width: self.info.width,
             height: self.info.height,
             stride: (self.info.width + 7)/8,
-            data: &self.data[(32 + character * bytes_per_glyph)..(32 + character * bytes_per_glyph + bytes_per_glyph)],
+            data: &self.data.as_ref()[(32 + character * bytes_per_glyph)..(32 + character * bytes_per_glyph + bytes_per_glyph)],
         })
     }
 }
