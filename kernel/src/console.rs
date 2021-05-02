@@ -1,4 +1,4 @@
-use core::fmt;
+use core::{fmt, panic::PanicInfo};
 use bootinfo::boot_info::{ConsoleFont, FrameBuffer};
 use spinning_top::{Spinlock, const_spinlock};
 
@@ -162,8 +162,39 @@ pub fn init(frame_buffer: FrameBuffer, font: ConsoleFont) {
 
     if let Some(writer) = guard.as_mut() {
         writer.clear();
-
-        use core::fmt::Write;
-        writeln!(writer, "Hello, World!").unwrap();
     }
+}
+
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    use fmt::Write;
+
+    //TODO Also output to SerialWriter
+    if let Some(writer) = FRAMEBUFFER_WRITER.lock().as_mut() {
+        writer.write_fmt(args).unwrap()
+    }
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::console::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => (print!("\n"));
+    ($($arg:tt)*) => (print!("{}\n", format_args!($($arg)*)));
+}
+
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    // Force unlock the mutex; in case it was locked.
+    // This is OK since we're panicking.
+    unsafe {
+        FRAMEBUFFER_WRITER.force_unlock();
+    }
+
+    println!("{}", info);
+    
+    loop { x86_64::instructions::hlt(); }
 }
