@@ -169,6 +169,8 @@ pub fn init(frame_buffer: FrameBuffer, font: ConsoleFont) {
 pub fn _print(args: fmt::Arguments) {
     use fmt::Write;
 
+    //TODO Probably disable interrupts whilst locking; to prevent deadlocks
+
     //TODO Also output to SerialWriter
     if let Some(writer) = FRAMEBUFFER_WRITER.lock().as_mut() {
         writer.write_fmt(args).unwrap()
