@@ -1,6 +1,7 @@
 use bootinfo::{boot_info::{MemoryMap, MemoryType}, memory_layout::PHYSMAP_BASE};
-use spinning_top::{Spinlock, const_spinlock};
 use x86_64::{PhysAddr, VirtAddr, structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB}};
+
+use super::Locked;
 
 struct StackElement {
     next: Option<PhysAddr>,
@@ -53,19 +54,32 @@ impl FrameDeallocator<Size4KiB> for StackFrameAllocator {
     }
 }
 
-static FRAME_ALLOCATOR: Spinlock<StackFrameAllocator> = const_spinlock(StackFrameAllocator::new());
+static FRAME_ALLOCATOR: Locked<StackFrameAllocator> = Locked::new(StackFrameAllocator::new());
 
 pub fn init(map: &MemoryMap) {
-    let mut guard = FRAME_ALLOCATOR.lock();
     for entry in map.entries() {
         if entry.memory_type == MemoryType::Conventional {
             let start = PhysFrame::containing_address(PhysAddr::new(entry.start));
             let end = PhysFrame::containing_address(PhysAddr::new(entry.start + entry.size as u64));
             for frame in PhysFrame::range(start, end) {
                 unsafe {
-                    guard.deallocate_frame(frame);
+                    FRAME_ALLOCATOR.lock().deallocate_frame(frame);
                 }
             }
         }
+    }
+}
+
+pub struct PhysAlloc;
+
+unsafe impl FrameAllocator<Size4KiB> for PhysAlloc {
+    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
+        FRAME_ALLOCATOR.lock().allocate_frame()
+    }
+}
+
+impl FrameDeallocator<Size4KiB> for PhysAlloc {
+    unsafe fn deallocate_frame(&mut self, frame: x86_64::structures::paging::PhysFrame<Size4KiB>) {
+        FRAME_ALLOCATOR.lock().deallocate_frame(frame)
     }
 }

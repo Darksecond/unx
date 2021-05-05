@@ -20,6 +20,10 @@ pub const BOOTINFO_BASE: u64 = 0xFFFF_FFC0_8000_0000; //2 gigs after STACK_GUARD
 pub const BOOTINFO_SIZE: u64 = gibibyte(1);
 pub const BOOTINFO_TOP: u64 = BOOTINFO_BASE + BOOTINFO_SIZE;
 
+pub const HEAP_BASE: u64 = BOOTINFO_TOP;
+pub const HEAP_SIZE: u64 = gibibyte(1);
+pub const HEAP_TOP: u64 = HEAP_BASE + HEAP_SIZE;
+
 const fn page(num: u64) -> u64 {
     num * 0x1000
 }
